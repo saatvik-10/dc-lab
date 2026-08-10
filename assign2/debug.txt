@@ -1,0 +1,387 @@
+# Debugging Report – Bully Algorithm Simulation in Java
+
+## Title
+
+Debugging and Analysis of Bully Algorithm Simulation
+
+---
+
+# Objective
+
+To debug the Java implementation of the Bully Election Algorithm, identify logical and implementation errors, suggest corrections, and verify the correctness of the election process.
+
+---
+
+# Program Overview
+
+The program simulates the Bully Election Algorithm where:
+
+* Every process has a unique Process ID.
+* The process with the highest ID acts as the coordinator.
+* When the coordinator crashes, another process detects the failure.
+* The detecting process initiates an election.
+* The highest alive process becomes the new coordinator.
+
+---
+
+# Bugs Found
+
+## Bug 1: Election Messages Sent to Dead Process
+
+### Problem
+
+During stage display, every higher process receives an election message:
+
+```java
+for (j = curr + 1; j < n; j++) {
+    System.out.println("P" + process[curr] + " sends ELECTION to P" + process[j]);
+}
+```
+
+This includes the failed coordinator.
+
+Example:
+
+```
+P2 sends ELECTION to P5
+P5 is dead
+```
+
+Although acceptable in simulation, the actual Bully Algorithm normally checks process availability before communication.
+
+### Fix
+
+```java
+for (j = curr + 1; j < n; j++) {
+    if (j != failed)
+        System.out.println("P" + process[curr] +
+                " sends ELECTION to P" + process[j]);
+}
+```
+
+---
+
+## Bug 2: Queue-Based Election is Not Actual Bully Algorithm
+
+### Problem
+
+The program uses:
+
+```java
+int[] stage
+```
+
+as a queue.
+
+Actual Bully Algorithm is recursive.
+
+Correct sequence:
+
+```
+P2 → P3
+        ↓
+       P4
+        ↓
+       P5
+```
+
+Current implementation stores all higher processes together and processes them later.
+
+This behaves like BFS rather than Bully Election.
+
+### Suggested Improvement
+
+Instead of using a queue:
+
+```
+P2
+ ↓
+P3
+ ↓
+P4
+```
+
+Each higher process should immediately begin its own election.
+
+---
+
+## Bug 3: Multiple Higher Processes Added Simultaneously
+
+Current code:
+
+```java
+for(j = curr+1; j<n; j++)
+{
+    stage[rear++] = j;
+}
+```
+
+Suppose:
+
+```
+P2 starts
+```
+
+Queue becomes
+
+```
+P3
+P4
+P5
+```
+
+Actual Bully Algorithm should only allow one higher process to continue after receiving OK.
+
+---
+
+## Bug 4: Dead Process Still Appears in Election Sequence
+
+Example output:
+
+```
+P2 sends ELECTION to P5
+P5 is dead
+```
+
+Dead process should not participate in election.
+
+Better simulation:
+
+```
+P2 sends election to P3
+P2 sends election to P4
+```
+
+Skip dead processes completely.
+
+---
+
+## Bug 5: Coordinator Announcement
+
+Current code:
+
+```java
+for(i=0;i<n;i++)
+{
+    if(i==failed || i==elected)
+        continue;
+
+    ...
+}
+```
+
+This works correctly.
+
+No modification required.
+
+---
+
+## Bug 6: Time Measurement
+
+Current code:
+
+```java
+long startTime = System.nanoTime();
+```
+
+Timer measures only the election logic.
+
+Printing time is excluded.
+
+This is acceptable.
+
+No bug found.
+
+---
+
+## Bug 7: Process Validation
+
+Current validation:
+
+```java
+if(!found)
+```
+
+Correct.
+
+No issue.
+
+---
+
+## Bug 8: Failed Coordinator Validation
+
+Current code:
+
+```java
+if(initiator==failed)
+```
+
+Correct.
+
+No issue.
+
+---
+
+## Bug 9: Maximum Process Constant
+
+```
+MAX = 105
+```
+
+Only 104 processes can actually be used because indexing begins at zero.
+
+A more flexible approach is
+
+```java
+int[] process = new int[n];
+```
+
+instead of fixed-size arrays.
+
+---
+
+## Bug 10: Queue Memory
+
+Arrays
+
+```java
+stage[]
+visited[]
+electedStage[]
+```
+
+occupy unnecessary memory.
+
+For a recursive Bully implementation these arrays are unnecessary.
+
+---
+
+# Logical Difference from Real Bully Algorithm
+
+Current Program
+
+```
+P2
+
+├──P3
+├──P4
+└──P5
+```
+
+Actual Bully Algorithm
+
+```
+P2
+ │
+ ▼
+P3
+ │
+ ▼
+P4
+ │
+ ▼
+P5
+```
+
+The current implementation resembles Breadth First Search (BFS), while the Bully Algorithm follows a recursive chain where each higher responding process starts a new election.
+
+---
+
+# Sample Execution
+
+Input
+
+```
+Processes : 5
+Coordinator : P5
+Failed : P5
+Election Initiator : P2
+```
+
+Expected Election
+
+```
+P2 sends election to P3 and P4
+
+P3 replies OK
+
+P3 starts election
+
+P3 sends election to P4
+
+P4 replies OK
+
+P4 starts election
+
+No higher alive process
+
+P4 becomes coordinator
+```
+
+---
+
+# Complexity Analysis
+
+Current Implementation
+
+Time Complexity
+
+```
+O(n²)
+```
+
+Space Complexity
+
+```
+O(n)
+```
+
+Actual Recursive Bully Algorithm
+
+Time Complexity
+
+```
+O(n²)
+```
+
+Space Complexity
+
+```
+O(1)
+```
+
+or
+
+```
+O(n)
+```
+
+if recursion stack is considered.
+
+---
+
+# Advantages
+
+* Proper input validation.
+* Handles invalid process IDs.
+* Displays election stages clearly.
+* Calculates election execution time.
+* Correctly elects the highest alive process.
+* Easy to understand for educational purposes.
+
+---
+
+# Limitations
+
+* Uses BFS instead of recursive Bully Algorithm.
+* Sends election messages to failed process.
+* Uses unnecessary queue and visited arrays.
+* Not scalable for distributed environments.
+* Assumes only one failed process.
+* No support for multiple simultaneous elections.
+
+---
+
+# Conclusion
+
+The program successfully demonstrates the Bully Election Algorithm for educational purposes and correctly elects the highest active process as the coordinator. However, its implementation differs from the standard Bully Algorithm by using a queue-based breadth-first traversal rather than recursive election propagation. Eliminating communication with failed processes and replacing the queue with recursive election logic would make the simulation more faithful to the original algorithm while simplifying the code.
