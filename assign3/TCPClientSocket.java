@@ -5,7 +5,7 @@ import java.util.concurrent.atomic.*;
 public class TCPClientSocket {
     public static void main(String[] args) {
 
-        String serverIP = "172.19.4.184";
+        String serverIP = "127.0.0.1";
 
         int port = 5000;
 
